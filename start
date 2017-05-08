@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Log per day
+TODAY=`date "+%Y%m%d"`
+LOGFILE="logs/${TODAY}.log"
+
+# Timeout for each calculation(in seconds)
+TIMEOUT=1
+
+CPU_PREV_TOTAL=0
+CPU_PREV_IDLE=0
+
+# Add header line if needed
+NEED_HEADER=0
+
+if [[ ! -f $LOGFILE ]]
+then
+    NEED_HEADER=1
+else
+    LINECOUNT=`grep "" $LOGFILE | wc -l`
+
+    if [[ $LINECOUT = 0 ]]
+    then
+        NEED_HEADER=1
+    fi
+fi
+
+if [[ $NEED_HEADER = 1 ]]
+then
+    echo -e 'Time\tCPU\tMemory' >> $LOGFILE
+fi
+
+while [ "true" ]
+do
+    TIME=`date "+%Y-%m-%d %H:%M:%S"`
+
+    #### CPU starts
+    CPU=(`cat /proc/stat | grep '^cpu '`) # Get the total CPU statistics.
+    unset CPU[0]                          # Discard the "cpu" prefix.
+    CPU_IDLE=${CPU[4]}                        # Get the idle CPU time.
+
+    # Calculate the total CPU time.
+    CPU_TOTAL=0
+
+    for CPU_VALUE in "${CPU[@]:0:4}"; do
+        let "CPU_TOTAL=$CPU_TOTAL+$CPU_VALUE"
+    done
+
+    # Calculate the CPU usage since we last checked.
+    let "CPU_DIFF_IDLE=$CPU_IDLE-$CPU_PREV_IDLE"
+    let "CPU_DIFF_TOTAL=$CPU_TOTAL-$CPU_PREV_TOTAL"
+    let "CPU_DIFF_USAGE=(1000*($CPU_DIFF_TOTAL-$CPU_DIFF_IDLE)/$CPU_DIFF_TOTAL+5)/10"
+
+    # Remember the total and idle CPU times for the next check.
+    CPU_PREV_TOTAL="$CPU_TOTAL"
+    CPU_PREV_IDLE="$CPU_IDLE"
+    #### CPU ends
+
+    #### Memory starts
+    TOTAL=`awk '{print $2}' <(free -m | grep Mem)`
+    USED=`awk '{print $3}' <(free -m | grep Mem)`
+    CACHED=`awk '{print $7}' <(free -m | grep Mem)`
+
+    MEMORY=`echo "scale = 2; ($USED - $CACHED) / $TOTAL * 100" | bc`
+    #### Memory ends
+
+    echo -e "$TIME\t$CPU_DIFF_USAGE\t$MEMORY" >> $LOGFILE
+
+    sleep $TIMEOUT;
+done;
