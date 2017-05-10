@@ -64,6 +64,9 @@ do
     MEMORY=`echo "scale = 2; ($USED - $CACHED) / $TOTAL * 100" | bc`
     #### Memory ends
 
+    echo -e "$TIME\t$CPU_DIFF_USAGE\t$MEMORY"
+
+    # Print to log file
     echo -e "$TIME\t$CPU_DIFF_USAGE\t$MEMORY" >> $LOGFILE
 
     sleep $TIMEOUT;
